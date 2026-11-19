@@ -1,0 +1,17 @@
+# OCDI build of traefik-kop: upstream main plus fixes that are not released yet.
+# Built by .github/workflows/ocdi-image.yml to ghcr.io/kdg-ocdi/traefik-kop.
+# Drop this fork once upstream ships the fix (jittering/traefik-kop#111).
+FROM golang:1.26-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /traefik-kop ./bin/traefik-kop
+
+FROM alpine:3.23 AS certificates
+RUN apk add --no-cache ca-certificates
+
+FROM scratch
+COPY --from=certificates /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build /traefik-kop /traefik-kop
+ENTRYPOINT ["/traefik-kop"]
